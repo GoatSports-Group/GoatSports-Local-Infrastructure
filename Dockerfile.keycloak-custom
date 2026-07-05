@@ -6,7 +6,7 @@ WORKDIR /opt/keycloak
 COPY providers/ /opt/keycloak/providers/
 COPY themes/ /opt/keycloak/themes/
 
-RUN /opt/keycloak/bin/kc.sh build --health-enabled=true
+RUN /opt/keycloak/bin/kc.sh build --health-enabled=true --features=scripts
 
 FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
 WORKDIR /opt/keycloak
