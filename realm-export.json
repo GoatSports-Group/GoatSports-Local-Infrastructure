@@ -1271,8 +1271,7 @@
   "emailTheme": "",
   "eventsEnabled": true,
   "eventsListeners": [
-    "jboss-logging",
-    "GoatSports-kafka-listener"
+    "jboss-logging"
   ],
   "enabledEventTypes": [
     "SEND_RESET_PASSWORD",
