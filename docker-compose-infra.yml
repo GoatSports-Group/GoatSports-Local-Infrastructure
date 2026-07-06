@@ -54,13 +54,16 @@ services:
       - goatsports-network
 
   keycloak:
-    image: minhdat1312/goatsports-keycloak:latest
+    image: quay.io/keycloak/keycloak:26.0.0
     container_name: goatsports-keycloak
     deploy:
       resources:
         limits:
           memory: 750M
-    command: [ "start-dev", "--import-realm", "--features=scripts" ]
+    command: start-dev --features=scripts
+    volumes:
+      - ./providers:/opt/keycloak/providers
+      - ./themes:/opt/keycloak/themes:z
     healthcheck:
       test: [ "CMD-SHELL", "curl --head -fsS http://localhost:5005/health/ready | echo $?" ]
       interval: 30s
