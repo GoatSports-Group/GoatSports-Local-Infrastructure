@@ -3,17 +3,22 @@ ARG KEYCLOAK_VERSION=26.0.0
 FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} AS builder
 WORKDIR /opt/keycloak
 
+ENV KC_FEATURES=scripts
+ENV KC_HEALTH_ENABLED=true
+
 COPY providers/ /opt/keycloak/providers/
 COPY themes/ /opt/keycloak/themes/
 
-RUN /opt/keycloak/bin/kc.sh build --health-enabled=true --features=scripts
+RUN /opt/keycloak/bin/kc.sh build
 
 FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
 WORKDIR /opt/keycloak
+
+ENV KC_FEATURES=scripts
 
 COPY --from=builder /opt/keycloak/ /opt/keycloak/
 
 COPY realm-export.json /opt/keycloak/data/import/realm.json
 
 ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
-CMD ["start", "--import-realm"]
+CMD ["start", "--optimized", "--import-realm"]
