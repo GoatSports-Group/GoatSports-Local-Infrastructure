@@ -60,7 +60,7 @@ services:
       resources:
         limits:
           memory: 750M
-    command: [ "start-dev", "--import-realm", "--features=scripts" ]
+    command: [ "start", "--optimized", "--import-realm" ]
     healthcheck:
       test: [ "CMD-SHELL", "curl --head -fsS http://localhost:5005/health/ready | echo $?" ]
       interval: 30s
@@ -71,7 +71,6 @@ services:
       - "8082:8080"
       - "5005:5005"
     environment:
-      KC_DB: postgres
       KC_DB_URL_HOST: postgres
       KC_DB_URL_DATABASE: keycloak
       KC_DB_USERNAME: ${POSTGRES_USER}
