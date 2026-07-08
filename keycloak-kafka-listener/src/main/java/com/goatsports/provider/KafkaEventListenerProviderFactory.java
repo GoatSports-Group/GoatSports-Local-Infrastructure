@@ -189,6 +189,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                         session.getTransactionManager().rollback();
                                         continue;
                                     }
+                                    session.getContext().setRealm(realm);
 
                                     UserModel existingUser = session.users().getUserByUsername(realm, username);
                                     if (existingUser != null) {
@@ -254,6 +255,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                         session.getTransactionManager().rollback();
                                         continue;
                                     }
+                                    session.getContext().setRealm(realm);
 
                                     UserModel user = session.users().getUserByUsername(realm, username);
                                     if (user == null) {
