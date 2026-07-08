@@ -27,18 +27,21 @@ import java.util.logging.Logger;
 public class KafkaEventListenerProviderFactory implements EventListenerProviderFactory {
     private final Logger log = Logger.getLogger(KafkaEventListenerProviderFactory.class.getName());
 
-    private String topic;
+    private String consumeTopic;
+    private String produceTopic;
     private String bootstrapServers;
     private String realmName;
     private Thread consumerThread;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final String BOOTSTRAP_SERVERS_KEY = "bootstrapServers";
-    private final String TOPIC_KEY = "topic";
+    private final String CONSUME_TOPIC_KEY = "consumeTopic";
+    private final String PRODUCE_TOPIC_KEY = "produceTopic";
     private final String REALM_KEY = "realm";
 
     private final String BOOTSTRAP_SERVERS_DEFAULT_VALUE = "kafka:19092";
-    private final String TOPIC_KEY_DEFAULT_VALUE = "user-registration-topic";
+    private final String CONSUME_TOPIC_DEFAULT_VALUE = "user-registration-topic";
+    private final String PRODUCE_TOPIC_DEFAULT_VALUE = "user-sync-topic";
     private final String REALM_DEFAULT_VALUE = "goatsports";
 
     @Override
@@ -53,11 +56,18 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                 .defaultValue(BOOTSTRAP_SERVERS_DEFAULT_VALUE)
                 .add()
                 .property()
-                .name(TOPIC_KEY)
-                .label("Kafka Topic")
-                .helpText("Tên topic")
+                .name(CONSUME_TOPIC_KEY)
+                .label("Kafka Consume Topic")
+                .helpText("Tên topic nhận event đăng ký/verify")
                 .type(ProviderConfigProperty.STRING_TYPE)
-                .defaultValue(TOPIC_KEY_DEFAULT_VALUE)
+                .defaultValue(CONSUME_TOPIC_DEFAULT_VALUE)
+                .add()
+                .property()
+                .name(PRODUCE_TOPIC_KEY)
+                .label("Kafka Produce Topic")
+                .helpText("Tên topic gửi event đã sync")
+                .type(ProviderConfigProperty.STRING_TYPE)
+                .defaultValue(PRODUCE_TOPIC_DEFAULT_VALUE)
                 .add()
                 .property()
                 .name(REALM_KEY)
@@ -72,7 +82,8 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
     @Override
     public void init(Config.Scope scope) {
         String servers = scope.get(BOOTSTRAP_SERVERS_KEY);
-        String configuredTopic = scope.get(TOPIC_KEY);
+        String configuredConsumeTopic = scope.get(CONSUME_TOPIC_KEY);
+        String configuredProduceTopic = scope.get(PRODUCE_TOPIC_KEY);
         String configuredRealm = scope.get(REALM_KEY);
 
         if (servers == null || servers.isBlank()) {
@@ -83,13 +94,24 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
         }
         this.bootstrapServers = servers;
 
-        if (configuredTopic == null || configuredTopic.isBlank()) {
-            configuredTopic = System.getenv("KEYCLOAK_KAFKA_TOPIC");
+        if (configuredConsumeTopic == null || configuredConsumeTopic.isBlank()) {
+            configuredConsumeTopic = System.getenv("KEYCLOAK_KAFKA_CONSUME_TOPIC");
         }
-        if (configuredTopic == null || configuredTopic.isBlank()) {
-            configuredTopic = TOPIC_KEY_DEFAULT_VALUE;
+        if (configuredConsumeTopic == null || configuredConsumeTopic.isBlank()) {
+            configuredConsumeTopic = System.getenv("KEYCLOAK_KAFKA_TOPIC");
         }
-        this.topic = configuredTopic;
+        if (configuredConsumeTopic == null || configuredConsumeTopic.isBlank()) {
+            configuredConsumeTopic = CONSUME_TOPIC_DEFAULT_VALUE;
+        }
+        this.consumeTopic = configuredConsumeTopic;
+
+        if (configuredProduceTopic == null || configuredProduceTopic.isBlank()) {
+            configuredProduceTopic = System.getenv("KEYCLOAK_KAFKA_PRODUCE_TOPIC");
+        }
+        if (configuredProduceTopic == null || configuredProduceTopic.isBlank()) {
+            configuredProduceTopic = PRODUCE_TOPIC_DEFAULT_VALUE;
+        }
+        this.produceTopic = configuredProduceTopic;
 
         if (configuredRealm == null || configuredRealm.isBlank()) {
             configuredRealm = System.getenv("KEYCLOAK_REALM");
@@ -127,7 +149,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
     @Override
     public void postInit(KeycloakSessionFactory keycloakSessionFactory) {
         consumerThread = new Thread(() -> {
-            log.info("Starting Keycloak Kafka Consumer for user sync on topic: " + topic);
+            log.info("Starting Keycloak Kafka Consumer for user sync on topic: " + consumeTopic);
             
             Properties props = new Properties();
             props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -139,7 +161,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
 
 
             try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
-                consumer.subscribe(Collections.singletonList(topic));
+                consumer.subscribe(Collections.singletonList(consumeTopic));
                 while (!Thread.currentThread().isInterrupted()) {
                     ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
                     for (ConsumerRecord<String, String> record : records) {
@@ -287,8 +309,8 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
             event.put("data", data);
 
             String payload = mapper.writeValueAsString(event);
-            localProducer.send(new ProducerRecord<>(topic, userId, payload));
-            log.info("Published USER_SYNCED event back to Kafka for user: " + username + " (Keycloak ID: " + keycloakId + ")");
+            localProducer.send(new ProducerRecord<>(produceTopic, userId, payload));
+            log.info("Published USER_SYNCED event back to Kafka for user: " + username + " (Keycloak ID: " + keycloakId + ") on topic: " + produceTopic);
         } catch (Exception e) {
             log.severe("Failed to publish USER_SYNCED event back to Kafka: " + e.getMessage());
         }

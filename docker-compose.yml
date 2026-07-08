@@ -69,6 +69,8 @@ services:
   gateway-server:
     image: minhdat1312/goatsports-gateway:latest
     container_name: goatsports-gateway
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     deploy:
       resources:
         limits:
