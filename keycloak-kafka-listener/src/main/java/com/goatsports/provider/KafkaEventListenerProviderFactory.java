@@ -277,7 +277,47 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                 } finally {
                                     session.close();
                                 }
-                            }
+                            } else if (UserRegistrationEventType.USER_PASSWORD_UPDATED.name().equals(eventType)) {
+                                 JsonNode dataNode = root.get("data");
+                                 String username = dataNode.get("username").asText();
+                                 String password = dataNode.get("password").asText();
+
+                                 log.info("Syncing updated password for user: " + username);
+
+                                 KeycloakSession session = keycloakSessionFactory.create();
+                                 try {
+                                     session.getTransactionManager().begin();
+                                     
+                                     RealmModel realm = session.realms().getRealmByName(realmName);
+                                     if (realm == null) {
+                                         log.severe("Realm '" + realmName + "' not found! Cannot sync password update.");
+                                         session.getTransactionManager().rollback();
+                                         continue;
+                                     }
+                                     session.getContext().setRealm(realm);
+
+                                     UserModel user = session.users().getUserByUsername(realm, username);
+                                     if (user == null) {
+                                         log.warning("User '" + username + "' not found in Keycloak. Skipping password update.");
+                                         session.getTransactionManager().rollback();
+                                         continue;
+                                     }
+
+                                     user.credentialManager().updateCredential(
+                                             UserCredentialModel.password(password, false)
+                                     );
+
+                                     session.getTransactionManager().commit();
+                                     log.info("Successfully updated password for user '" + username + "' in Keycloak.");
+                                     
+                                     consumer.commitSync();
+                                 } catch (Exception e) {
+                                     log.severe("Failed to update password for user '" + username + "' in Keycloak: " + e.getMessage());
+                                     session.getTransactionManager().rollback();
+                                 } finally {
+                                     session.close();
+                                 }
+                             }
                         } catch (Exception e) {
                             log.severe("Failed to process Kafka sync message: " + e.getMessage());
                         }
