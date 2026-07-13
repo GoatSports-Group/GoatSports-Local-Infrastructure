@@ -20,38 +20,6 @@ services:
     networks:
       - goatsports-network
 
-  storage-service:
-    image: minhdat1312/goatsports-storage-service:latest
-    container_name: goatsports-storage-service
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-    healthcheck:
-      test: [ "CMD-SHELL", "curl --fail --silent localhost:8081/actuator/health/readiness | grep UP || exit 1" ]
-      start_period: 10s
-      retries: 10
-      timeout: 5s
-      interval: 10s
-    ports:
-      - "8081:8080"
-    environment:
-      # APPLICATION
-      SERVER_PORT: ${STORAGE_SERVICE_PORT}
-      # CLOUDFLARE R2
-      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
-      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
-      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
-      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
-      CLOUDFLARE_R2_EXPIRATION_MINUTES: ${CLOUDFLARE_R2_EXPIRATION_MINUTES}
-      CLOUDFLARE_R2_BUCKET: ${CLOUDFLARE_R2_BUCKET}
-      # EUREKA
-      EUREKA_CLIENT_ENABLED: ${EUREKA_CLIENT_ENABLED}
-      EUREKA_DISCOVERY_ENABLED: ${EUREKA_DISCOVERY_ENABLED}
-      EUREKA_SERVICE_URL: ${EUREKA_SERVICE_URL}
-      EUREKA_SERVICE_PREFER_IP_ADDRESS: ${EUREKA_SERVICE_PREFER_IP_ADDRESS}
-    networks:
-      - goatsports-network
-
   redis-server:
     image: redis:6.2-alpine
     container_name: goatsports-redis
