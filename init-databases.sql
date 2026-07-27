@@ -1,4 +1,4 @@
-CREATE DATABASE keycloak;
-CREATE DATABASE sports_auth;
-CREATE DATABASE sports_venue;
-CREATE DATABASE sports_notification;
+CREATE DATABASE IF NOT EXISTS keycloak;
+CREATE DATABASE IF NOT EXISTS sports_auth;
+CREATE DATABASE IF NOT EXISTS sports_venue;
+CREATE DATABASE IF NOT EXISTS sports_notification;
