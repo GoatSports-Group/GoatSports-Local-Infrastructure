@@ -317,7 +317,71 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                  } finally {
                                      session.close();
                                  }
-                             }
+                             } else if (UserRegistrationEventType.USER_UPDATED.name().equals(eventType)) {
+                                 JsonNode dataNode = root.get("data");
+                                 String userIdStr = dataNode.get("userId").asText();
+                                 String keycloakIdStr = dataNode.has("keycloakId") && !dataNode.get("keycloakId").isNull() ? dataNode.get("keycloakId").asText() : "";
+                                 String username = dataNode.get("username").asText();
+                                 String fullName = dataNode.has("fullName") ? dataNode.get("fullName").asText() : "";
+                                 String email = dataNode.has("email") ? dataNode.get("email").asText() : "";
+
+                                 log.info("Updating user in Keycloak: " + username + " (ID: " + userIdStr + ", Keycloak ID: " + keycloakIdStr + ")");
+
+                                 KeycloakSession session = keycloakSessionFactory.create();
+                                 try {
+                                     session.getTransactionManager().begin();
+                                     
+                                     RealmModel realm = session.realms().getRealmByName(realmName);
+                                     if (realm == null) {
+                                         log.severe("Realm '" + realmName + "' not found! Cannot update user.");
+                                         session.getTransactionManager().rollback();
+                                         continue;
+                                     }
+                                     session.getContext().setRealm(realm);
+
+                                     UserModel user = null;
+                                     if (keycloakIdStr != null && !keycloakIdStr.isEmpty() && !"null".equalsIgnoreCase(keycloakIdStr)) {
+                                         user = session.users().getUserById(realm, keycloakIdStr);
+                                     }
+                                     if (user == null) {
+                                         user = session.users().getUserByUsername(realm, username);
+                                     }
+                                     if (user == null && email != null && !email.isEmpty()) {
+                                         user = session.users().getUserByEmail(realm, email);
+                                     }
+
+                                     if (user == null) {
+                                         log.warning("User '" + username + "' not found in Keycloak. Skipping update.");
+                                         session.getTransactionManager().rollback();
+                                         continue;
+                                     }
+
+                                     if (username != null && !username.isEmpty() && !username.equals(user.getUsername())) {
+                                         user.setUsername(username);
+                                     }
+
+                                     if (fullName != null && !fullName.isEmpty()) {
+                                         int firstSpace = fullName.indexOf(" ");
+                                         if (firstSpace != -1) {
+                                             user.setFirstName(fullName.substring(0, firstSpace));
+                                             user.setLastName(fullName.substring(firstSpace + 1));
+                                         } else {
+                                             user.setFirstName(fullName);
+                                             user.setLastName("");
+                                         }
+                                     }
+
+                                     session.getTransactionManager().commit();
+                                     log.info("User '" + username + "' updated in Keycloak successfully.");
+                                     
+                                     consumer.commitSync();
+                                 } catch (Exception e) {
+                                     log.severe("Failed to update user '" + username + "' in Keycloak: " + e.getMessage());
+                                     session.getTransactionManager().rollback();
+                                 } finally {
+                                     session.close();
+                                 }
+                              }
                         } catch (Exception e) {
                             log.severe("Failed to process Kafka sync message: " + e.getMessage());
                         }
