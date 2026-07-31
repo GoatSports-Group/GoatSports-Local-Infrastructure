@@ -242,6 +242,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                 JsonNode dataNode = root.get("data");
                                 String userIdStr = dataNode.get("userId").asText();
                                 String username = dataNode.get("username").asText();
+                                boolean verified = dataNode.get("verified").asBoolean();
 
                                 log.info("Setting emailVerified to true for user: " + username + " (ID: " + userIdStr + ")");
 
@@ -264,8 +265,8 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                         continue;
                                     }
 
-                                    user.setEmailVerified(true);
-                                    user.setEnabled(true);
+                                    user.setEmailVerified(verified);
+                                    user.setEnabled(verified);
 
                                     session.getTransactionManager().commit();
                                     log.info("User '" + username + "' emailVerified set to true successfully in Keycloak.");
