@@ -1,28 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: goatsports-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: postgres
-      PGDATA: /var/lib/postgresql/data/pgdata
-      TZ: Asia/Ho_Chi_Minh
-      PGTZ: Asia/Ho_Chi_Minh
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres:/var/lib/postgresql/data
-      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-db.sql
-    networks:
-      - goatsports-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d sports_auth" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   kafka:
     image: apache/kafka:latest
     container_name: goatsports-kafka
@@ -71,10 +47,10 @@ services:
       - "8082:8080"
       - "5005:5005"
     environment:
-      KC_DB_URL_HOST: postgres
-      KC_DB_URL_DATABASE: keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: ${KC_DB_URL}
+      KC_DB_USERNAME: ${KC_DB_USERNAME}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       PROXY_ADDRESS_FORWARDING: true
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -97,4 +73,5 @@ volumes:
 
 networks:
   goatsports-network:
+    name: goatsports-network
     driver: bridge
