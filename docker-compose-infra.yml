@@ -36,9 +36,9 @@ services:
       resources:
         limits:
           memory: 750M
-    command: [ "start", "--optimized", "--import-realm" ]
+    command: [ "start", "--optimized" ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl --head -fsS http://localhost:5005/health/ready | echo $?" ]
+      test: [ "CMD-SHELL", "curl --head -fsS http://localhost:9000/health/ready | echo $?" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -59,7 +59,8 @@ services:
       KEYCLOAK_KAFKA_PRODUCE_TOPIC: ${USER_SYNC_TOPIC}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM}
       KC_METRICS_ENABLED: "true"
-      KC_HTTP_HEALTH_PORT: "5005"
+      KC_HTTP_HEALTH_PORT: "9000"
+      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: 900
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
