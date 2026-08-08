@@ -31,6 +31,7 @@ services:
 
   keycloak:
     image: minhdat1312/goatsports-keycloak:latest
+    pull_policy: always
     container_name: goatsports-keycloak
     deploy:
       resources:
@@ -70,6 +71,7 @@ services:
 
   eureka-server:
     image: minhdat1312/goatsports-eureka-server:latest
+    pull_policy: always
     container_name: goatsports-eureka-server
     deploy:
       resources:
@@ -91,14 +93,12 @@ services:
 
   gateway-server:
     image: minhdat1312/goatsports-gateway:latest
+    pull_policy: always
     container_name: goatsports-gateway
     deploy:
       resources:
         limits:
           memory: 320M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "curl --silent localhost:7070/ | grep -q 'statusCode' || exit 1" ]
       start_period: 10s
@@ -129,6 +129,7 @@ services:
 
   auth-service:
     image: minhdat1312/goatsports-auth-service:latest
+    pull_policy: always
     container_name: goatsports-auth-service
     ports:
       - "7071:7071"
@@ -172,6 +173,7 @@ services:
 
   venue-service:
     image: minhdat1312/goatsports-venue-service:latest
+    pull_policy: always
     container_name: goatsports-venue-service
     ports:
       - "7072:7072"
@@ -192,6 +194,7 @@ services:
 
   notification-service:
     image: minhdat1312/goatsports-notification-service:latest
+    pull_policy: always
     container_name: goatsports-notification-service
     ports:
       - "7073:7073"
@@ -212,6 +215,7 @@ services:
 
   report-service:
     image: minhdat1312/goatsports-report-service:latest
+    pull_policy: always
     container_name: goatsports-report-service
     ports:
       - "7074:7074"
@@ -231,6 +235,7 @@ services:
 
   storage-service:
     image: minhdat1312/goatsports-storage-service:latest
+    pull_policy: always
     container_name: goatsports-storage-service
     ports:
       - "7075:7075"
@@ -257,6 +262,7 @@ services:
 
   workflow-service:
     image: minhdat1312/goatsports-workflow-service:latest
+    pull_policy: always
     container_name: goatsports-workflow-service
     ports:
       - "7076:7076"
@@ -289,6 +295,7 @@ services:
 
   audit-service:
     image: minhdat1312/goatsports-audit-service:latest
+    pull_policy: always
     container_name: goatsports-audit-service
     ports:
       - "7077:7077"
