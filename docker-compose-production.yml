@@ -29,6 +29,25 @@ services:
     networks:
       - goatsports-network
 
+  postgres:
+    image: postgres:16
+    container_name: goatsports-postgres
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    entrypoint: [ "sh", "-c", "echo 'CREATE DATABASE keycloak; CREATE DATABASE sports_auth; CREATE DATABASE sports_venue; CREATE DATABASE sports_notification;' > /docker-entrypoint-initdb.d/init.sql && exec /usr/local/bin/docker-entrypoint.sh postgres" ]
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - goatsports-network
+
   keycloak:
     image: minhdat1312/goatsports-keycloak:latest
     pull_policy: always
@@ -315,6 +334,7 @@ services:
 
 volumes:
   kafka_data:
+  postgres_data:
 
 networks:
   goatsports-network:
