@@ -1,0 +1,74 @@
+services:
+  keycloak:
+    image: minhdat1312/goatsports-keycloak:latest
+    container_name: goatsports-keycloak
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    command: [ "start", "--optimized", "--hostname=${KEYCLOAK_SERVER_URL}", "--hostname-admin=${KEYCLOAK_SERVER_URL}", "--proxy-headers=xforwarded" ]
+    ports:
+      - "8082:8080"
+    environment:
+      JAVA_OPTS_APPEND: "-Xms128m -Xmx256m"
+      KC_DB: postgres
+      KC_DB_URL: ${KC_DB_URL}
+      KC_DB_USERNAME: ${KC_DB_USERNAME}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KC_PROXY_HEADERS: xforwarded
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVER: ${KAFKA_BOOTSTRAP_SERVER}
+      KEYCLOAK_KAFKA_CONSUME_TOPIC: ${USER_REGISTRATION_TOPIC}
+      KEYCLOAK_KAFKA_PRODUCE_TOPIC: ${USER_SYNC_TOPIC}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KC_METRICS_ENABLED: "true"
+      KC_HTTP_HEALTH_PORT: "9000"
+      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: 900
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: ${KEYCLOAK_SERVER_URL}
+      KC_HOSTNAME_ADMIN: ${KEYCLOAK_SERVER_URL}
+    networks:
+      goatsports-network:
+        aliases:
+          - keycloak
+      dokploy-network:
+
+  gateway-server:
+    image: minhdat1312/goatsports-gateway:latest
+    container_name: goatsports-gateway
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+    ports:
+      - "7070:7070"
+    environment:
+      JAVA_OPTS: "-Xms64m -Xmx128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+      SERVER_PORT: ${GATEWAY_SERVER_PORT}
+      HTTP_CODECS_MAX_IN_MEMORY_SIZE: ${HTTP_CODECS_MAX_IN_MEMORY_SIZE}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
+      VENUE_SERVICE_URL: ${VENUE_SERVICE_URL}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
+      REPORT_SERVICE_URL: ${REPORT_SERVICE_URL}
+      STORAGE_SERVICE_URL: ${STORAGE_SERVICE_URL}
+      WORKFLOW_SERVICE_URL: ${WORKFLOW_SERVICE_URL}
+      AUDIT_SERVICE_URL: ${AUDIT_SERVICE_URL}
+      EUREKA_CLIENT_ENABLED: ${EUREKA_CLIENT_ENABLED}
+      EUREKA_DISCOVERY_ENABLED: ${EUREKA_DISCOVERY_ENABLED}
+      EUREKA_SERVICE_URL: ${EUREKA_SERVICE_URL}
+      EUREKA_SERVICE_PREFER_IP_ADDRESS: ${EUREKA_SERVICE_PREFER_IP_ADDRESS}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      REDIS_URL: ${REDIS_URL}
+    networks:
+      goatsports-network:
+        aliases:
+          - gateway-server
+      dokploy-network:
+
+networks:
+  goatsports-network:
+    external: true
+  dokploy-network:
+    external: true
