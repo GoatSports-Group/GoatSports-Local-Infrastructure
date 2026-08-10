@@ -21,6 +21,23 @@ services:
         aliases:
           - postgres
 
+  redis:
+    image: redis:7-alpine
+    container_name: goatsports-redis
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--appendonly", "no", "--save", ""]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      goatsports-network:
+        aliases:
+          - redis
+
   kafka:
     image: apache/kafka:latest
     container_name: goatsports-kafka
@@ -88,6 +105,7 @@ services:
 volumes:
   kafka_data:
   postgres_data:
+  redis_data:
 
 networks:
   goatsports-network:
