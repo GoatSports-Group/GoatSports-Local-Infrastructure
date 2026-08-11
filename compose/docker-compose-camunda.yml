@@ -1,0 +1,79 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.9
+    container_name: goatsports-elasticsearch
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms384m -Xmx384m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      goatsports-network:
+        aliases:
+          - elasticsearch
+
+  camunda:
+    image: camunda/camunda:8.9.0
+    container_name: goatsports-camunda
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1280M
+    environment:
+      SERVER_PORT: "8089"
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx768m -XX:+UseSerialGC"
+      ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_CLASSNAME: "io.camunda.exporter.CamundaExporter"
+      ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CONNECT_URL: "http://elasticsearch:9200"
+      ZEEBE_BROKER_GATEWAY_ENABLE: "true"
+      ZEEBE_BROKER_NETWORK_HOST: "0.0.0.0"
+      ZEEBE_BROKER_DATA_DISK_FREESPACE_PROCESSING: "1536MB"
+      ZEEBE_BROKER_DATA_DISK_FREESPACE_REPLICATION: "1024MB"
+      ZEEBE_BROKER_GATEWAY_REST_PORT: "8089"
+      CAMUNDA_DATA_SECONDARYSTORAGE_ELASTICSEARCH_URL: "http://elasticsearch:9200"
+      CAMUNDA_OPERATE_CSRFPREVENTIONENABLED: "false"
+      CAMUNDA_TASKLIST_CSRFPREVENTIONENABLED: "false"
+      CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME: ${CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME}
+      CAMUNDA_SECURITY_INITIALIZATION_USERS_0_PASSWORD: ${CAMUNDA_SECURITY_INITIALIZATION_USERS_0_PASSWORD}
+      CAMUNDA_SECURITY_INITIALIZATION_USERS_0_NAME: ${CAMUNDA_SECURITY_INITIALIZATION_USERS_0_NAME}
+      CAMUNDA_SECURITY_INITIALIZATION_USERS_0_EMAIL: ${CAMUNDA_SECURITY_INITIALIZATION_USERS_0_EMAIL}
+      CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0: ${CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0}
+    ports:
+      - "26500:26500"
+      - "8089:8089"
+      - "8080:8080"
+    volumes:
+      - zeebe_data:/usr/local/zeebe/data
+    networks:
+      goatsports-network:
+        aliases:
+          - camunda
+          - zeebe
+          - operate
+          - tasklist
+      dokploy-network:
+
+volumes:
+  zeebe_data:
+  elasticsearch_data:
+
+networks:
+  goatsports-network:
+    external: true
+  dokploy-network:
+    external: true

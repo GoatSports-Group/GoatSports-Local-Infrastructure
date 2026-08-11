@@ -21,6 +21,25 @@ services:
         aliases:
           - postgres
 
+  mongodb:
+    image: mongo:7
+    container_name: goatsports-mongodb
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    command: [ "mongod", "--wiredTigerCacheSizeGB", "0.25" ]
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      goatsports-network:
+        aliases:
+          - mongodb
+
   redis:
     image: redis:7-alpine
     container_name: goatsports-redis
@@ -101,24 +120,6 @@ services:
       goatsports-network:
         aliases:
           - eureka-server
-  mongodb:
-    image: mongo:7
-    container_name: goatsports-mongodb
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    command: [ "mongod", "--wiredTigerCacheSizeGB", "0.25" ]
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      goatsports-network:
-        aliases:
-          - mongodb
 
 volumes:
   kafka_data:
