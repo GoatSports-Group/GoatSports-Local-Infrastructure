@@ -34,10 +34,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1280M
+          memory: 2048M
     environment:
       SERVER_PORT: "8089"
-      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx768m -XX:+UseSerialGC"
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx1536m -XX:+UseSerialGC"
       ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_CLASSNAME: "io.camunda.exporter.CamundaExporter"
       ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CONNECT_URL: "http://elasticsearch:9200"
       ZEEBE_BROKER_GATEWAY_ENABLE: "true"
