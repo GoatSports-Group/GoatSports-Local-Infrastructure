@@ -123,9 +123,13 @@ services:
 
 volumes:
   kafka_data:
+    name: goatsports_kafka_data
   postgres_data:
+    name: goatsports_postgres_data
   redis_data:
+    name: goatsports_redis_data
   mongodb_data:
+    name: goatsports_mongodb_data
 
 networks:
   goatsports-network:

@@ -56,7 +56,6 @@ services:
     ports:
       - "26500:26500"
       - "8089:8089"
-      - "8080:8080"
     volumes:
       - zeebe_data:/usr/local/zeebe/data
     networks:
@@ -70,7 +69,9 @@ services:
 
 volumes:
   zeebe_data:
+    name: goatsports_zeebe_data
   elasticsearch_data:
+    name: goatsports_elasticsearch_data
 
 networks:
   goatsports-network:
