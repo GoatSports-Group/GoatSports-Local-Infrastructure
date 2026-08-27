@@ -6,7 +6,7 @@ services:
       resources:
         limits:
           memory: 512M
-    entrypoint: [ "sh", "-c", "echo 'CREATE DATABASE keycloak; CREATE DATABASE sports_auth; CREATE DATABASE sports_venue; CREATE DATABASE sports_notification;' > /docker-entrypoint-initdb.d/init.sql && exec /usr/local/bin/docker-entrypoint.sh postgres" ]
+    entrypoint: [ "sh", "-c", "echo 'CREATE DATABASE keycloak; CREATE DATABASE sports_auth; CREATE DATABASE sports_venue; CREATE DATABASE sports_notification; CREATE DATABASE sports_payment;' > /docker-entrypoint-initdb.d/init.sql && exec /usr/local/bin/docker-entrypoint.sh postgres" ]
     command: [ "-c", "max_connections=15", "-c", "shared_buffers=16MB", "-c", "work_mem=1MB" ]
     ports:
       - "5432:5432"
