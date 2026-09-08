@@ -123,6 +123,18 @@ services:
         aliases:
           - eureka-server
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: goatsports-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      goatsports-network:
+        aliases:
+          - ollama
+
 volumes:
   kafka_data:
     name: goatsports_kafka_data
@@ -132,6 +144,8 @@ volumes:
     name: goatsports_redis_data
   mongodb_data:
     name: goatsports_mongodb_data
+  ollama_data:
+    name: goatsports_ollama_data
 
 networks:
   goatsports-network:
