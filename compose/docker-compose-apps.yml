@@ -247,6 +247,40 @@ services:
         aliases:
           - payment-service
 
+  ai-service:
+    image: minhdat1312/goatsports-ai-service:latest
+    container_name: goatsports-ai-service
+    ports:
+      - "7081:7081"
+    environment:
+      AI_SERVICE_PORT: ${AI_SERVICE_PORT}
+      MONGODB_URI: ${MONGODB_URI}
+      AI_MONGODB_DATABASE: ${AI_MONGODB_DATABASE:-sports_ai}
+      MONGODB_VECTOR_SEARCH_ENABLED: ${MONGODB_VECTOR_SEARCH_ENABLED:-false}
+      MONGODB_VECTOR_INDEX: ${MONGODB_VECTOR_INDEX:-embedding_vector_index}
+      REDIS_URL: ${REDIS_URL}
+      VENUE_SERVICE_URL: ${VENUE_SERVICE_URL}
+      SOCIAL_SERVICE_URL: ${SOCIAL_SERVICE_URL}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
+      HTTP_TIMEOUT_SECONDS: ${HTTP_TIMEOUT_SECONDS:-5}
+      MATCHMAKING_QUEUE_TTL_SECONDS: ${MATCHMAKING_QUEUE_TTL_SECONDS:-900}
+      MATCHMAKING_SESSION_TTL_SECONDS: ${MATCHMAKING_SESSION_TTL_SECONDS:-600}
+      MATCHMAKING_MIN_SCORE: ${MATCHMAKING_MIN_SCORE:-50}
+      MATCHMAKING_SCAN_LIMIT: ${MATCHMAKING_SCAN_LIMIT:-200}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.2}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-256}
+      LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-none}
+      RAG_MAX_CONTEXT_CHUNKS: ${RAG_MAX_CONTEXT_CHUNKS:-5}
+      RAG_MIN_RELEVANCE_SCORE: ${RAG_MIN_RELEVANCE_SCORE:-0.08}
+    networks:
+      goatsports-network:
+        aliases:
+          - ai-service
+
 networks:
   goatsports-network:
     external: true
