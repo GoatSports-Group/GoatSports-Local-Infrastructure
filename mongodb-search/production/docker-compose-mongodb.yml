@@ -1,68 +1,163 @@
+name: goatsports-mongodb-search-production
+
 services:
-  mongodb:
+  mongodb-search-secrets-init:
+    image: busybox:1.36.1
+    restart: "no"
+    environment:
+      MONGO_REPLICA_SET_KEY: ${MONGO_REPLICA_SET_KEY}
+      MONGOT_PASSWORD: ${MONGOT_PASSWORD}
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        umask 077
+        printf '%s' "$${MONGO_REPLICA_SET_KEY}" > /mongodb-secrets/keyfile
+        chown 1000:1000 /mongodb-secrets/keyfile
+        chmod 400 /mongodb-secrets/keyfile
+        printf '%s' "$${MONGOT_PASSWORD}" > /mongot-secrets/passwordFile
+        chmod 400 /mongot-secrets/passwordFile
+    volumes:
+      - /var/lib/goatsports/mongodb-secrets:/mongodb-secrets
+      - /var/lib/goatsports/mongot-secrets:/mongot-secrets
+
+  mongodb-search:
     image: mongodb/mongodb-community-server:8.3.9-ubi9-slim
-    container_name: goatsports-mongodb
+    container_name: goatsports-mongodb-search
     restart: unless-stopped
-    network_mode: host
-    command: [ "--config", "/etc/mongodb/mongod.conf" ]
+    depends_on:
+      mongodb-search-secrets-init:
+        condition: service_completed_successfully
+    command:
+      - --config
+      - /etc/mongod.conf
+      - --replSetMember=mongodb-search:27017
+    environment:
+      MONGODB_INITDB_DATABASE: ${AI_MONGODB_DATABASE}
+      MONGODB_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGODB_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:${MONGO_SEARCH_HOST_PORT:-27018}:27017"
     volumes:
       - /var/lib/goatsports/mongodb:/data/db
-      - ./config/mongod.conf:/etc/mongodb/mongod.conf:ro
-      - ./config/bootstrap-replica.js:/opt/goatsports/bootstrap-replica.js:ro
-      - /etc/goatsports/mongodb/secrets:/run/secrets/mongodb:ro
-      - /etc/goatsports/mongodb/tls:/run/tls/mongodb:ro
+      - /var/lib/goatsports/mongodb-secrets:/run/secrets/mongodb:ro
+      - ./config/mongod.conf:/etc/mongod.conf:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --host localhost --port 27017 --username "$${MONGODB_INITDB_ROOT_USERNAME}" --password "$${MONGODB_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --eval "quit(db.adminCommand({ ping: 1 }).ok ? 0 : 2)"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     logging:
       driver: json-file
       options:
         max-size: "20m"
         max-file: "5"
+    networks:
+      goatsports-network:
+        aliases:
+          - mongodb-search
 
-  mongodb-bootstrap:
-    profiles: ["bootstrap"]
+  mongodb-search-bootstrap:
     image: mongodb/mongodb-community-server:8.3.9-ubi9-slim
-    container_name: goatsports-mongodb-bootstrap
     restart: "no"
-    network_mode: host
     depends_on:
-      - mongodb
-    env_file:
-      - .env
-    entrypoint: ["/bin/sh", "-ec"]
+      mongodb-search:
+        condition: service_healthy
+    entrypoint: [ "/bin/sh", "-ec" ]
     command:
       - >-
-        until mongosh --quiet --host localhost --port 27017
-        --tls --tlsCAFile /run/tls/mongodb/ca.pem
-        --tlsAllowInvalidHostnames
-        --eval "db.adminCommand({ ping: 1 })" >/dev/null 2>&1;
-        do sleep 2; done;
-        exec mongosh --quiet --host localhost --port 27017
-        --tls --tlsCAFile /run/tls/mongodb/ca.pem
-        --tlsAllowInvalidHostnames
-        --file /opt/goatsports/bootstrap-replica.js
+        exec mongosh --quiet --host mongodb-search --port 27017 --username "$${MONGO_ROOT_USERNAME}" --password "$${MONGO_ROOT_PASSWORD}" --authenticationDatabase admin --file /bootstrap/bootstrap.js
+    environment:
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGOT_PASSWORD: ${MONGOT_PASSWORD}
+      AI_MONGODB_DATABASE: ${AI_MONGODB_DATABASE}
+      AI_MONGODB_USERNAME: ${AI_MONGODB_USERNAME}
+      AI_MONGODB_PASSWORD: ${AI_MONGODB_PASSWORD}
+      AUDIT_MONGODB_DATABASE: ${AUDIT_MONGODB_DATABASE}
+      AUDIT_MONGODB_USERNAME: ${AUDIT_MONGODB_USERNAME}
+      AUDIT_MONGODB_PASSWORD: ${AUDIT_MONGODB_PASSWORD}
+      SOCIAL_MONGODB_DATABASE: ${SOCIAL_MONGODB_DATABASE}
+      SOCIAL_MONGODB_USERNAME: ${SOCIAL_MONGODB_USERNAME}
+      SOCIAL_MONGODB_PASSWORD: ${SOCIAL_MONGODB_PASSWORD}
     volumes:
-      - ./config/bootstrap-replica.js:/opt/goatsports/bootstrap-replica.js:ro
-      - /etc/goatsports/mongodb/tls:/run/tls/mongodb:ro
+      - ./config/bootstrap.js:/bootstrap/bootstrap.js:ro
+    networks:
+      - goatsports-network
+
+  mongodb-search-engine:
+    image: mongodb/mongodb-community-search:1.70.3
+    container_name: goatsports-mongodb-search-engine
+    restart: unless-stopped
+    depends_on:
+      mongodb-search-bootstrap:
+        condition: service_completed_successfully
+    volumes:
+      - /var/lib/goatsports/mongot:/data/mongot
+      - /var/lib/goatsports/mongot-secrets:/secrets:ro
+      - ./config/mongot.yml:/mongot-community/config.default.yml:ro
+    expose:
+      - "27028"
+      - "8080"
+      - "9946"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      goatsports-network:
+        aliases:
+          - mongodb-search-engine
 
   mongodb-search-index-init:
-    profiles: ["index"]
     image: mongodb/mongodb-community-server:8.3.9-ubi9-slim
-    container_name: goatsports-mongodb-search-index-init
     restart: "no"
-    network_mode: host
     depends_on:
-      - mongodb
-    env_file:
-      - .env
-    entrypoint: ["/bin/sh", "-ec"]
+      mongodb-search-engine:
+        condition: service_started
+    entrypoint: [ "/bin/sh", "-ec" ]
     command:
       - >-
-        exec mongosh --quiet --host localhost --port 27017
-        --username "$${MONGO_ROOT_USERNAME}"
-        --password "$${MONGO_ROOT_PASSWORD}"
-        --authenticationDatabase admin
-        --tls --tlsCAFile /run/tls/mongodb/ca.pem
-        --tlsAllowInvalidHostnames
-        --file /opt/goatsports/ensure-vector-index.js
+        exec mongosh --quiet --host mongodb-search --port 27017 --username "$${MONGO_ROOT_USERNAME}" --password "$${MONGO_ROOT_PASSWORD}" --authenticationDatabase admin --file /bootstrap/ensure-vector-index.js
+    environment:
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      AI_MONGODB_DATABASE: ${AI_MONGODB_DATABASE}
+      MONGODB_VECTOR_INDEX: ${MONGODB_VECTOR_INDEX}
+      MONGODB_VECTOR_DIMENSIONS: ${MONGODB_VECTOR_DIMENSIONS}
+      MONGODB_SEARCH_INDEX_WAIT_SECONDS: ${MONGODB_SEARCH_INDEX_WAIT_SECONDS}
     volumes:
-      - ./config/ensure-vector-index.js:/opt/goatsports/ensure-vector-index.js:ro
-      - /etc/goatsports/mongodb/tls:/run/tls/mongodb:ro
+      - ./config/ensure-vector-index.js:/bootstrap/ensure-vector-index.js:ro
+    networks:
+      - goatsports-network
+
+  mongodb-search-smoke:
+    profiles: [ "tools" ]
+    image: mongodb/mongodb-community-server:8.3.9-ubi9-slim
+    restart: "no"
+    depends_on:
+      mongodb-search-index-init:
+        condition: service_completed_successfully
+    entrypoint: [ "/bin/sh", "-ec" ]
+    command:
+      - >-
+        exec mongosh --quiet --host mongodb-search --port 27017 --username "$${AI_MONGODB_USERNAME}" --password "$${AI_MONGODB_PASSWORD}" --authenticationDatabase "$${AI_MONGODB_DATABASE}" --file /bootstrap/smoke-vector-search.js
+    environment:
+      AI_MONGODB_DATABASE: ${AI_MONGODB_DATABASE}
+      AI_MONGODB_USERNAME: ${AI_MONGODB_USERNAME}
+      AI_MONGODB_PASSWORD: ${AI_MONGODB_PASSWORD}
+      MONGODB_VECTOR_INDEX: ${MONGODB_VECTOR_INDEX}
+      MONGODB_VECTOR_DIMENSIONS: ${MONGODB_VECTOR_DIMENSIONS}
+    volumes:
+      - ./config/smoke-vector-search.js:/bootstrap/smoke-vector-search.js:ro
+    networks:
+      - goatsports-network
+
+networks:
+  goatsports-network:
+    external: true
