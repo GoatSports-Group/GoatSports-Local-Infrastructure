@@ -1,0 +1,31 @@
+syncSource:
+  replicaSet:
+    hostAndPort: "mongodb-search:27017"
+    scramAuth:
+      username: "mongotUser"
+      passwordFile: "/secrets/passwordFile"
+      authSource: "admin"
+      tls:
+        enabled: false
+  replicationReader:
+    readPreference: "primaryPreferred"
+
+storage:
+  dataPath: "/data/mongot"
+
+server:
+  grpc:
+    address: "mongodb-search-engine:27028"
+    tls:
+      mode: "disabled"
+
+metrics:
+  enabled: true
+  address: "mongodb-search-engine:9946"
+
+healthCheck:
+  address: "mongodb-search-engine:8080"
+
+logging:
+  verbosity: INFO
+

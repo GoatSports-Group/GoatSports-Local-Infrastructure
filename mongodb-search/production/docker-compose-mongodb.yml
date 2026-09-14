@@ -1,0 +1,68 @@
+services:
+  mongodb:
+    image: mongodb/mongodb-community-server:8.3.9-ubi9-slim
+    container_name: goatsports-mongodb
+    restart: unless-stopped
+    network_mode: host
+    command: [ "--config", "/etc/mongodb/mongod.conf" ]
+    volumes:
+      - /var/lib/goatsports/mongodb:/data/db
+      - ./config/mongod.conf:/etc/mongodb/mongod.conf:ro
+      - ./config/bootstrap-replica.js:/opt/goatsports/bootstrap-replica.js:ro
+      - /etc/goatsports/mongodb/secrets:/run/secrets/mongodb:ro
+      - /etc/goatsports/mongodb/tls:/run/tls/mongodb:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  mongodb-bootstrap:
+    profiles: ["bootstrap"]
+    image: mongodb/mongodb-community-server:8.3.9-ubi9-slim
+    container_name: goatsports-mongodb-bootstrap
+    restart: "no"
+    network_mode: host
+    depends_on:
+      - mongodb
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        until mongosh --quiet --host localhost --port 27017
+        --tls --tlsCAFile /run/tls/mongodb/ca.pem
+        --tlsAllowInvalidHostnames
+        --eval "db.adminCommand({ ping: 1 })" >/dev/null 2>&1;
+        do sleep 2; done;
+        exec mongosh --quiet --host localhost --port 27017
+        --tls --tlsCAFile /run/tls/mongodb/ca.pem
+        --tlsAllowInvalidHostnames
+        --file /opt/goatsports/bootstrap-replica.js
+    volumes:
+      - ./config/bootstrap-replica.js:/opt/goatsports/bootstrap-replica.js:ro
+      - /etc/goatsports/mongodb/tls:/run/tls/mongodb:ro
+
+  mongodb-search-index-init:
+    profiles: ["index"]
+    image: mongodb/mongodb-community-server:8.3.9-ubi9-slim
+    container_name: goatsports-mongodb-search-index-init
+    restart: "no"
+    network_mode: host
+    depends_on:
+      - mongodb
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        exec mongosh --quiet --host localhost --port 27017
+        --username "$${MONGO_ROOT_USERNAME}"
+        --password "$${MONGO_ROOT_PASSWORD}"
+        --authenticationDatabase admin
+        --tls --tlsCAFile /run/tls/mongodb/ca.pem
+        --tlsAllowInvalidHostnames
+        --file /opt/goatsports/ensure-vector-index.js
+    volumes:
+      - ./config/ensure-vector-index.js:/opt/goatsports/ensure-vector-index.js:ro
+      - /etc/goatsports/mongodb/tls:/run/tls/mongodb:ro

@@ -1,0 +1,88 @@
+static_resources:
+  listeners:
+    - name: mongot_grpc
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 27028
+      filter_chains:
+        - transport_socket:
+            name: envoy.transport_sockets.tls
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              require_client_certificate: true
+              common_tls_context:
+                tls_certificates:
+                  - certificate_chain:
+                      filename: /run/tls/envoy/envoy-server.crt
+                    private_key:
+                      filename: /run/tls/envoy/envoy-server.key
+                validation_context:
+                  trusted_ca:
+                    filename: /run/tls/envoy/ca.pem
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: mongot_grpc
+                codec_type: HTTP2
+                route_config:
+                  name: mongot_route
+                  virtual_hosts:
+                    - name: mongot
+                      domains: ["*"]
+                      routes:
+                        - match: { prefix: "/" }
+                          route:
+                            cluster: mongot_pool
+                            timeout: 0s
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    - name: mongot_pool
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      typed_extension_protocol_options:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          explicit_http_config:
+            http2_protocol_options: {}
+      load_assignment:
+        cluster_name: mongot_pool
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: mongot-01.internal
+                      port_value: 27028
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: mongot-02.internal
+                      port_value: 27028
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          sni: mongot.internal
+          common_tls_context:
+            tls_certificates:
+              - certificate_chain:
+                  filename: /run/tls/envoy/envoy-client.crt
+                private_key:
+                  filename: /run/tls/envoy/envoy-client.key
+            validation_context:
+              trusted_ca:
+                filename: /run/tls/envoy/ca.pem
+
+admin:
+  access_log_path: /tmp/envoy-admin-access.log
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 9901

@@ -1,0 +1,15 @@
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.35.3
+    container_name: goatsports-search-envoy
+    restart: unless-stopped
+    network_mode: host
+    command: [ "-c", "/etc/envoy/envoy.yaml", "--service-cluster", "goatsports-search" ]
+    volumes:
+      - ./config/envoy.yaml:/etc/envoy/envoy.yaml:ro
+      - /etc/goatsports/envoy/tls:/run/tls/envoy:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"

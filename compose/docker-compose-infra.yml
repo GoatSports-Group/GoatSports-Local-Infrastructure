@@ -21,27 +21,6 @@ services:
         aliases:
           - postgres
 
-  mongodb:
-    image: mongo:7
-    container_name: goatsports-mongodb
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    command: [ "mongod", "--wiredTigerCacheSizeGB", "0.25" ]
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      goatsports-network:
-        aliases:
-          - mongodb
-
   redis:
     image: redis:7-alpine
     container_name: goatsports-redis
@@ -148,8 +127,6 @@ volumes:
     name: goatsports_postgres_data
   redis_data:
     name: goatsports_redis_data
-  mongodb_data:
-    name: goatsports_mongodb_data
   ollama_data:
     name: goatsports_ollama_data
 

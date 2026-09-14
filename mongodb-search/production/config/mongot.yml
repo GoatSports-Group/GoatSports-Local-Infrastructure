@@ -1,0 +1,37 @@
+syncSource:
+  replicaSet:
+    hostAndPort:
+      - "mongo-01.internal:27017"
+      - "mongo-02.internal:27017"
+      - "mongo-03.internal:27017"
+    scramAuth:
+      username: "mongotUser"
+      passwordFile: "/run/secrets/mongot/passwordFile"
+      authSource: "admin"
+      tls:
+        enabled: true
+        tlsCertificateKeyFile: "/run/tls/mongot/mongot-client.pem"
+        caFile: "/run/tls/mongot/ca.pem"
+  replicationReader:
+    readPreference: "secondaryPreferred"
+
+storage:
+  dataPath: "/data/mongot"
+
+server:
+  grpc:
+    address: "0.0.0.0:27028"
+    tls:
+      mode: "mTLS"
+      certificateKeyFile: "/run/tls/mongot/mongot-server.pem"
+      caFile: "/run/tls/mongot/ca.pem"
+
+metrics:
+  enabled: true
+  address: "0.0.0.0:9946"
+
+healthCheck:
+  address: "0.0.0.0:8080"
+
+logging:
+  verbosity: INFO
