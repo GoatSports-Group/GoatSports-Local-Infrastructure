@@ -18,10 +18,10 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KAFKA_BOOTSTRAP_SERVER: ${KAFKA_BOOTSTRAP_SERVER}
+      KAFKA_BOOTSTRAP_SERVER: ${KAFKA_BOOTSTRAP_SERVERS}
       KEYCLOAK_KAFKA_CONSUME_TOPIC: ${USER_REGISTRATION_TOPIC}
       KEYCLOAK_KAFKA_PRODUCE_TOPIC: ${USER_SYNC_TOPIC}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_REALM: ${KEYCLOAK_CURRENT_REALM}
       KC_METRICS_ENABLED: "true"
       KC_HTTP_HEALTH_PORT: "9000"
       QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: 900
@@ -71,6 +71,18 @@ services:
         aliases:
           - gateway-server
       dokploy-network:
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: goatsports-cloudflared
+    command: [ "tunnel", "--no-autoupdate", "run" ]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - gateway-server
+    restart: unless-stopped
+    networks:
+      - goatsports-network
 
 networks:
   goatsports-network:
