@@ -102,26 +102,6 @@ services:
         aliases:
           - eureka-server
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: goatsports-ollama
-    environment:
-      OLLAMA_KEEP_ALIVE: "-1"
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: [ "CMD", "ollama", "list" ]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
-    networks:
-      goatsports-network:
-        aliases:
-          - ollama
-
 volumes:
   kafka_data:
     name: goatsports_kafka_data
@@ -129,8 +109,6 @@ volumes:
     name: goatsports_postgres_data
   redis_data:
     name: goatsports_redis_data
-  ollama_data:
-    name: goatsports_ollama_data
 
 networks:
   goatsports-network:
