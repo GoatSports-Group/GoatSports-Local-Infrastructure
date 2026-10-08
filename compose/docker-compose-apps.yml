@@ -147,6 +147,7 @@ services:
     environment:
       JAVA_OPTS: "-Xms64m -Xmx128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
       SERVER_PORT: ${REPORT_SERVICE_PORT}
+      DB_URL: ${REPORT_DB_URL}
       DB_URL_AUTH: ${AUTH_DB_URL}
       JWT_SECRET: ${JWT_SECRET}
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
