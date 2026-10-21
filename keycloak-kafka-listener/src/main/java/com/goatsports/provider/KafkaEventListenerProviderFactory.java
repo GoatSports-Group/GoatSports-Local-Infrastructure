@@ -208,7 +208,9 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                     UserModel user = session.users().addUser(realm, null, username, true, true);
                                     user.setEmail(email);
                                     user.setEmailVerified(false);
-                                    user.setEnabled(false);
+                                    // Luôn bật: auth-service mới là nơi quyết tài khoản dùng được hay chưa (OTP, khóa).
+                                    // Tắt ở đây thì đăng nhập Google kẹt ở trang lỗi "Account is disabled" của Keycloak.
+                                    user.setEnabled(true);
 
                                     if (fullName != null && !fullName.isEmpty()) {
                                         int firstSpace = fullName.indexOf(" ");
@@ -244,7 +246,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                 String username = dataNode.get("username").asText();
                                 boolean verified = dataNode.get("verified").asBoolean();
 
-                                log.info("Setting emailVerified to true for user: " + username + " (ID: " + userIdStr + ")");
+                                log.info("Setting emailVerified to " + verified + " for user: " + username + " (ID: " + userIdStr + ")");
 
                                 KeycloakSession session = keycloakSessionFactory.create();
                                 try {
@@ -266,10 +268,11 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                     }
 
                                     user.setEmailVerified(verified);
-                                    user.setEnabled(verified);
+                                    // Bỏ xác thực không tắt user Keycloak (xem USER_REGISTERED); bật lại user cũ đã bị tắt.
+                                    user.setEnabled(true);
 
                                     session.getTransactionManager().commit();
-                                    log.info("User '" + username + "' emailVerified set to true successfully in Keycloak.");
+                                    log.info("User '" + username + "' emailVerified set to " + verified + " in Keycloak.");
                                     
                                     consumer.commitSync();
                                 } catch (Exception e) {

@@ -1,0 +1,81 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - keycloak-kafka-listener/**/*
+        - providers/**/*
+        - themes/**/*
+        - realm-export.json
+        - Dockerfile.keycloak-custom
+        - .gitlab-ci.yml
+
+variables:
+  KEYCLOAK_VERSION: "26.0.0"
+  IMAGE_NAME: docker.io/$DOCKER_USERNAME/goatsports-keycloak
+  JENKINS_JOB_NAME: "GoatSports-CD"
+  JENKINS_SERVICE_NAME: "keycloak"
+
+stages:
+  - build
+  - image
+  - deploy
+
+build-listener:
+  stage: build
+  image: maven:3.9-eclipse-temurin-21
+  variables:
+    MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  cache:
+    key: maven
+    paths:
+      - .m2/repository
+  script:
+    - cd keycloak-kafka-listener && mvn -B -DskipTests clean package
+  artifacts:
+    paths:
+      - providers/keycloak-kafka-listener.jar
+    expire_in: 1 day
+
+build-and-push:
+  stage: image
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  needs:
+    - build-listener
+  script:
+    - mkdir -p .build/keycloak-image/providers .build/keycloak-image/themes
+    - cp providers/keycloak-kafka-listener.jar .build/keycloak-image/providers/keycloak-kafka-listener.jar
+    - cp -r themes/. .build/keycloak-image/themes/
+    - cp realm-export.json .build/keycloak-image/realm-export.json
+    - cp Dockerfile.keycloak-custom .build/keycloak-image/Dockerfile
+    - echo "$DOCKER_PASSWORD" | docker login docker.io -u "$DOCKER_USERNAME" --password-stdin
+    - >
+      docker build
+      --build-arg KEYCLOAK_VERSION=$KEYCLOAK_VERSION
+      --label org.opencontainers.image.source=$CI_PROJECT_URL
+      --label org.opencontainers.image.revision=$CI_COMMIT_SHA
+      -t $IMAGE_NAME:latest
+      .build/keycloak-image
+    - docker push $IMAGE_NAME:latest
+
+trigger_jenkins_deploy:
+  stage: deploy
+  image: curlimages/curl:latest
+  script:
+    - test -n "$JENKINS_URL"
+    - test -n "$JENKINS_USER"
+    - test -n "$JENKINS_API_TOKEN"
+    - test -n "$JENKINS_JOB_NAME"
+    - test -n "$JENKINS_SERVICE_NAME"
+    - |
+      curl --fail --silent --show-error \
+        --user "${JENKINS_USER}:${JENKINS_API_TOKEN}" \
+        --request POST \
+        --data-urlencode "SERVICE_NAME=${JENKINS_SERVICE_NAME}" \
+        "${JENKINS_URL%/}/job/${JENKINS_JOB_NAME}/buildWithParameters"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
