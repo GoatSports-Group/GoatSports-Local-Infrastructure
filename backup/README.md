@@ -105,6 +105,51 @@ docker compose -f docker-compose-restore-drill.yml exec drill-postgres \
     psql -U "$POSTGRES_USER" -d sports_venue -c "select booking_id, status, created_at from bookings order by created_at desc limit 5"
 ```
 
+## Khôi phục một phần (lỡ xóa / hỏng một DB, vài dòng, vài file)
+
+### Thay cả DB của một service: `restore-db.sh`
+
+Một lệnh: tải đúng file cần, kiểm checksum, **dump trạng thái hiện tại lên `vault:pre-restore/<lúc chạy>/`**, ghi đè
+(PostgreSQL trong **một transaction**: lỗi thì DB giữ nguyên), rồi đối chiếu số dòng với lúc backup. Thiếu `--yes` thì chỉ in ra
+sẽ làm gì.
+```bash
+docker exec goatsports-backup bash -c '. /usr/local/bin/lib.sh; configure_rclone; rclone lsf vault:db'   # chọn bản
+# Dừng service (và Keycloak nếu khôi phục auth) trên Dokploy, rồi:
+docker exec goatsports-backup restore-db.sh 2026-10-23T0200 sports_auth keycloak --yes
+docker exec goatsports-backup restore-db.sh latest mongo:sports_social --yes
+```
+
+| Service | Đích cần khôi phục **cùng một bản** | Lưu ý |
+|---|---|---|
+| auth-service | `sports_auth` **và** `keycloak` | Hai DB phải cùng thời điểm, nếu không user / mật khẩu ở Keycloak lệch với auth. Phiên đăng nhập nằm ở Redis (không backup): ai đăng nhập lỗi thì đăng nhập lại |
+| venue-service | `sports_venue` | Yêu cầu hủy đang dở: xem bước 5 của Khôi phục thật nếu Camunda lệch |
+| payment-service | `sports_payment` | Đối chiếu với payOS sau khi khôi phục: giao dịch sau giờ backup không còn trong DB |
+| club / notification / report | `sports_club` / `sports_notification` / `sports_report` | |
+| social-service | `sports_social` (PostgreSQL) **và** `mongo:sports_social` | |
+| audit-service | `mongo:sports_audit` | Sau đó gọi `/logs/integrity` |
+| ai-service | `mongo:sports_ai` | Chạy lại `ensure-vector-index.js` |
+
+**Cân nhắc trước khi chạy**: khôi phục là đưa DB về **đúng lúc backup**. Mọi thứ phát sinh sau đó trong DB này mất (user
+đăng ký sau 02:00, đơn đặt sau 02:00…), trong khi DB của service khác vẫn giữ, nên có thể còn dữ liệu trỏ tới cái đã mất. Chỉ
+thay cả DB khi DB thật sự hỏng; lỡ xóa vài dòng thì dùng cách dưới. Khôi phục nhầm thì quay lại bằng bản ở
+`vault:pre-restore/<lúc chạy>/` (`pg_restore --clean --if-exists --single-transaction`, `mongorestore --drop`).
+
+### Chỉ lấy lại vài dòng (không ghi đè gì)
+Khôi phục bản đó vào stack diễn tập (`RESTORE_STAMP=<bản> docker compose -f docker-compose-restore-drill.yml ... up`,
+**không** `down` ngay), tìm dòng cần trong `drill-postgres`, xuất bằng `\copy (select ...) to '/tmp/rows.csv' csv header`,
+rồi nạp có chọn lọc vào production.
+
+### Lấy lại một file R2
+File bị xóa hay bị ghi đè nằm ở `files/deleted/<đêm bị xóa>/`, file còn nguyên ở `files/current/`:
+```bash
+docker exec -it goatsports-backup bash
+. /usr/local/bin/lib.sh; configure_rclone
+rclone lsf -R vault:files/deleted | grep <tên file>
+rclone copyto "vault:files/deleted/<đêm>/<key>" "source:$CLOUDFLARE_R2_BUCKET/<key>"
+```
+
+Xong việc nào cũng khởi động lại service (bỏ cache cũ) và kiểm tra trên app.
+
 ## Khôi phục thật (mất VPS hoặc mất dữ liệu)
 
 1. Dựng lại VPS: Dokploy, `goatsports-network`, stack infra (postgres, redis, kafka) và stack mongodb-search, **chưa** deploy các service.

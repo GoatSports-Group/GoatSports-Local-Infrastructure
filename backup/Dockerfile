@@ -9,7 +9,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends /tmp/mongodb-database-tools.deb \
     && rm -rf /var/lib/apt/lists/* /tmp/mongodb-database-tools.deb
 
-COPY lib.sh backup.sh restore.sh run.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/backup.sh /usr/local/bin/restore.sh /usr/local/bin/run.sh
+COPY lib.sh backup.sh restore.sh restore-db.sh run.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/backup.sh /usr/local/bin/restore.sh /usr/local/bin/restore-db.sh /usr/local/bin/run.sh
 
 ENTRYPOINT ["run.sh"]
