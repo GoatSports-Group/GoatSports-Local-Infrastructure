@@ -1,0 +1,41 @@
+name: goatsports-backup
+
+# Backup hằng đêm 02:00: PostgreSQL + MongoDB + file R2 → bucket R2 riêng, mã hóa bằng rclone crypt.
+# Hướng dẫn và diễn tập khôi phục: infrastructure/backup/README.md
+services:
+  backup:
+    build: ../backup
+    image: goatsports-backup:local
+    container_name: goatsports-backup
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
+      CLOUDFLARE_R2_BUCKET: ${CLOUDFLARE_R2_BUCKET}
+      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
+      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
+      BACKUP_R2_BUCKET: ${BACKUP_R2_BUCKET}
+      BACKUP_R2_ACCESS_KEY: ${BACKUP_R2_ACCESS_KEY}
+      BACKUP_R2_SECRET_KEY: ${BACKUP_R2_SECRET_KEY}
+      BACKUP_ENCRYPTION_PASSWORD: ${BACKUP_ENCRYPTION_PASSWORD}
+      BACKUP_ENCRYPTION_SALT: ${BACKUP_ENCRYPTION_SALT}
+      BACKUP_ALERT_URL: ${BACKUP_ALERT_URL}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - goatsports-network
+
+networks:
+  goatsports-network:
+    external: true

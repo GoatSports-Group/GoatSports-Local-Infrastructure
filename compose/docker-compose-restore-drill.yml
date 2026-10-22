@@ -1,0 +1,59 @@
+name: goatsports-restore-drill
+
+# Diễn tập khôi phục trên VPS: PostgreSQL + MongoDB TRỐNG, chỉ nằm trên mạng riêng của project này (không vào
+# goatsports-network), nên không thể chạm DB production. Chạy rồi dọn sạch:
+#   docker compose -f docker-compose-restore-drill.yml --env-file <file env> up --build --abort-on-container-exit restore
+#   docker compose -f docker-compose-restore-drill.yml down -v
+services:
+  drill-postgres:
+    image: postgres:16
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: restore-drill
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  drill-mongo:
+    image: mongodb/mongodb-community-server:8.3.9-ubi9-slim
+    command: [ "--bind_ip_all" ]
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    healthcheck:
+      test: [ "CMD-SHELL", "mongosh --quiet --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 2)'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  restore:
+    build: ../backup
+    image: goatsports-backup:local
+    entrypoint: [ "restore.sh" ]
+    command: [ "${RESTORE_STAMP:-latest}" ]
+    restart: "no"
+    depends_on:
+      drill-postgres:
+        condition: service_healthy
+      drill-mongo:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      RESTORE_PG_HOST: drill-postgres
+      RESTORE_PG_USER: ${POSTGRES_USER}
+      RESTORE_PG_PASSWORD: restore-drill
+      RESTORE_MONGO_HOST: drill-mongo:27017
+      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
+      BACKUP_R2_BUCKET: ${BACKUP_R2_BUCKET}
+      BACKUP_R2_ACCESS_KEY: ${BACKUP_R2_ACCESS_KEY}
+      BACKUP_R2_SECRET_KEY: ${BACKUP_R2_SECRET_KEY}
+      BACKUP_ENCRYPTION_PASSWORD: ${BACKUP_ENCRYPTION_PASSWORD}
+      BACKUP_ENCRYPTION_SALT: ${BACKUP_ENCRYPTION_SALT}
