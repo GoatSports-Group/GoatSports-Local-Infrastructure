@@ -20,6 +20,11 @@ import org.keycloak.models.*;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+
 import java.time.Duration;
 import java.util.*;
 import java.util.logging.Logger;
@@ -32,6 +37,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
     private String bootstrapServers;
     private String realmName;
     private Thread consumerThread;
+    private SecretKeySpec passwordKey;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final String BOOTSTRAP_SERVERS_KEY = "bootstrapServers";
@@ -120,6 +126,29 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
             configuredRealm = REALM_DEFAULT_VALUE;
         }
         this.realmName = configuredRealm;
+
+        String passwordKeyBase64 = System.getenv("KAFKA_PASSWORD_ENCRYPTION_KEY");
+        if (passwordKeyBase64 == null || passwordKeyBase64.isBlank()) {
+            log.severe("KAFKA_PASSWORD_ENCRYPTION_KEY is not set: user registration and password sync will fail.");
+        } else {
+            byte[] raw = Base64.getDecoder().decode(passwordKeyBase64.trim());
+            if (raw.length != 32) {
+                log.severe("KAFKA_PASSWORD_ENCRYPTION_KEY must be a 32-byte AES-256 key (Base64).");
+            } else {
+                this.passwordKey = new SecretKeySpec(raw, "AES");
+            }
+        }
+    }
+
+    /** Giải mã Base64(IV 12 byte || ciphertext + tag) do KafkaPasswordCipher của auth-service tạo ra. */
+    private String decryptPassword(String encryptedPassword) throws Exception {
+        if (passwordKey == null) {
+            throw new IllegalStateException("Missing or invalid KAFKA_PASSWORD_ENCRYPTION_KEY");
+        }
+        byte[] payload = Base64.getDecoder().decode(encryptedPassword);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, passwordKey, new GCMParameterSpec(128, payload, 0, 12));
+        return new String(cipher.doFinal(payload, 12, payload.length - 12), StandardCharsets.UTF_8);
     }
 
     @Override
@@ -175,7 +204,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                                 String username = dataNode.get("username").asText();
                                 String email = dataNode.get("email").asText();
                                 String fullName = dataNode.get("fullName").asText();
-                                String password = dataNode.get("password").asText();
+                                String password = decryptPassword(dataNode.get("encryptedPassword").asText());
 
                                 log.info("Syncing user to Keycloak: " + username + " (ID: " + userIdStr + ")");
 
@@ -284,7 +313,7 @@ public class KafkaEventListenerProviderFactory implements EventListenerProviderF
                             } else if (UserRegistrationEventType.USER_PASSWORD_UPDATED.name().equals(eventType)) {
                                  JsonNode dataNode = root.get("data");
                                  String username = dataNode.get("username").asText();
-                                 String password = dataNode.get("password").asText();
+                                 String password = decryptPassword(dataNode.get("encryptedPassword").asText());
 
                                  log.info("Syncing updated password for user: " + username);
 
